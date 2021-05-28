@@ -14,14 +14,14 @@ from discord import Webhook, RequestsWebhookAdapter
 from dotenv import load_dotenv
 load_dotenv()
 
-my_url = 'https://www.memoryexpress.com/Category/VideoCards?FilterID=0307ddc4-d08e-8113-7f91-cc2f992e99a3&PageSize=120'
+my_url = 'https://www.memoryexpress.com/Category/VideoCards?FilterID=9e2f9741-d6ab-0ba6-06e1-440049798e7e'
 my_url2 = 'https://www.memoryexpress.com/Category/VideoCards?FilterID=877021ae-b00f-e9d6-b67b-0f7d7419e503&PageSize=120'
 base_url = 'https://www.memoryexpress.com'
 image_base_url = 'https://media.memoryexpress.com/Images'
 urls = []
 
 def create_webhook():
-    wHook = os.getenv('NVIDIA_WEBHOOK_ME')
+    wHook = os.getenv('AMD_WEBHOOK_ME')
     webhook = Webhook.from_url(wHook, adapter=RequestsWebhookAdapter())
     return webhook
 
@@ -73,7 +73,7 @@ def bot(driver, webhook):
                 #webhook.send(product.a['href'])
                 print("Available", end='\n\n')
 
-        time.sleep(15)
+        time.sleep(1800)
         driver.refresh()
 
 
