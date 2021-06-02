@@ -8,6 +8,7 @@ import lxml
 import schedule
 import os
 import discord
+import datetime
 import requests
 
 from discord import Webhook, RequestsWebhookAdapter
@@ -69,6 +70,7 @@ def bot(driver, webhook):
                 e.set_image(url=imageURL)
                 e.add_field(name="Product Link", value=link)
                 e.add_field(name="Price", value=productPrice)
+                e.timestamp = datetime.datetime.utcnow()
                 webhook.send(embed=e)
                 #webhook.send(product.a['href'])
                 print("Available", end='\n\n')
