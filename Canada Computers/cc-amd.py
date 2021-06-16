@@ -7,7 +7,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 import os
 import sys
-
+from requests import get
 from discord import Webhook, RequestsWebhookAdapter
 import discord
 import datetime
@@ -15,7 +15,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-my_url = 'https://www.canadacomputers.com/index.php?cPath=43&sf=:3_3,3_5,3_7,3_8,3_9&mfr=&pr=500-1000'
+PROXY = "198.50.177.44:44699"
+ip = get('https://api.ipify.org').text
+
+main_url = 'https://www.canadacomputers.com/index.php?cPath=43&sf=:3_29,3_30,3_31&mfr=&pr='
 my_url2 = 'https://www.facebook.com/CanadaComputers/'
 my_url3 = 'https://www.canadacomputers.com/index.php?cPath=43&sf=:2_1&mfr=&pr=50-74.99'
 test_url = 'https://www.canadacomputers.com/search/results_details.php?language=en&keywords=Asus+GeForce+GT+1030+LP+2GB'
@@ -33,14 +36,15 @@ urls = []
 
 # Initiate Webhook for Discord
 def create_webhook():
-    wHook = os.getenv('NVIDIA_WEBHOOK_CC')
+    wHook = os.getenv('AMD_WEBHOOK_CC')
     webhook = Webhook.from_url(wHook, adapter=RequestsWebhookAdapter())
     return webhook
 
 # Initiate Chrome Driver
 def create_driver():
     op = webdriver.ChromeOptions()
-    #op.add_argument('headless')
+    op.add_argument('headless')
+    #op.add_argument('--proxy-server=%s' % PROXY)
     driver = webdriver.Chrome(options=op)
     return driver
 
@@ -55,14 +59,13 @@ def bot(driver, webhook):
     time.sleep(1)
     driver.find_element_by_id("lo-password").send_keys(os.getenv("CC_PASS"))
     time.sleep(1)
-    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "btn-login"))).click()
-
+    driver.find_element_by_id("btn-login").click()
     time.sleep(2)
 
     # Infinite loop to keep checking for available items
     while 1:
-        pause = 1
-        driver.get(my_url3)
+        pause = 2
+        driver.get(main_url)
         last_height = driver.execute_script("return document.body.scrollHeight")
 
         # Scroll down on the products page to load all items
@@ -115,22 +118,22 @@ def bot(driver, webhook):
             if button.text.strip() == "Add to Cart":
 
                 # Send Discord Embed to Channel through Webhook
-                # e = discord.Embed(title=name, url=product.a['href'])
-                # e.set_image(url=imageURL)
-                # e.add_field(name="Product Link", value=product.a['href'])
-                # e.add_field(name="Price", value=price)
-                # e.timestamp = datetime.datetime.utcnow()
-                # webhook.send(embed=e)
+                e = discord.Embed(title=name, url=product.a['href'])
+                e.set_image(url=imageURL)
+                e.add_field(name="Product Link", value=product.a['href'])
+                e.add_field(name="Price", value=price)
+                e.timestamp = datetime.datetime.utcnow()
+                webhook.send(embed=e)
 
                 # Initiate Card Buying Process
-                buy_card(driver, webhook, product.a['href'], price)
+                #buy_card(driver, webhook, product.a['href'], price)
                 time.sleep(5)
                 #sys.exit()
 
             link = product.a['href']
             urls.append(link)
 
-        time.sleep(20)
+        time.sleep(25)
         driver.refresh()                                                                                                    # Check for new products every 20 seconds
 
 
@@ -193,24 +196,22 @@ def buy_card(driver, webhook, url, price):
                 webhook.send("Card no longer available")
                 return
 
-            WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#cart > div > div.col-lg-3.col-md-4.pt-2.pt-md-0 > div > h2:nth-child(7) > strong > span")))
+            #WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#cart > div > div.col-lg-3.col-md-4.pt-2.pt-md-0 > div > h2:nth-child(7) > strong > span")))
             # Check if product price is same as checkout price (This prevents from checking out with unwanted products in the cart)
-            if driver.find_element_by_css_selector("#cart > div > div.col-lg-3.col-md-4.pt-2.pt-md-0 > div > h2:nth-child(7) > strong > span").text.strip() == price:
+            if WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#cart > div > div.col-lg-3.col-md-4.pt-2.pt-md-0 > div > h2:nth-child(7) > strong > span"))).text.strip() == price:
 
                 # Click Proceed to Checkout button
-                WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[class='btn bg-green text-white font-1 text-center f-500 py-1']")))
-                driver.find_element_by_css_selector("button[class='btn bg-green text-white font-1 text-center f-500 py-1']").click()
+                WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[class='btn bg-green text-white font-1 text-center f-500 py-1']"))).click()
                 time.sleep(2)
 
-                WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "/html/body/div[1]/div[2]/form/div[1]/div[1]/div[1]/div[1]/input")))
                 # Check if online purchase is enabled and initiate the purchase if True
-                if driver.find_element_by_xpath("/html/body/div[1]/div[2]/form/div[1]/div[1]/div[1]/div[1]/input").is_enabled():
+                if WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "/html/body/div[1]/div[2]/form/div[1]/div[1]/div[1]/div[1]/input"))).is_enabled():
                     online_purchase(driver, webhook)
                     return
 
                 # If online purchase is disabled and only in store pick up is available, initiate the purchase if True
-                if (driver.find_element_by_xpath("/html/body/div[1]/div[2]/form/div[1]/div[1]/div[1]/div[1]/input").is_enabled() == False
-                        and driver.find_element_by_xpath("/html/body/div[1]/div[2]/form/div[1]/div[1]/div[1]/div[2]/input").is_enabled()):
+                if (WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "/html/body/div[1]/div[2]/form/div[1]/div[1]/div[1]/div[1]/input"))).is_enabled() == False
+                        and (WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "/html/body/div[1]/div[2]/form/div[1]/div[1]/div[1]/div[2]/input")))).is_enabled()):
 
                     store_pickup(driver, webhook)
                     return
@@ -221,7 +222,7 @@ def buy_card(driver, webhook, url, price):
 
 # Method for online purchase
 def online_purchase(driver, webhook):
-
+    WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.NAME, "checkout_shipping")))
     # Try to start the checkout process
     try:
         # Checkout Shipping
@@ -261,21 +262,16 @@ def online_purchase(driver, webhook):
         driver.find_element_by_xpath("/html/body/div[1]/main/div/div[4]/div[3]/div[7]/p[4]/input").send_keys(card_ccv)
         time.sleep(2)
         driver.find_element_by_xpath("/html/body/div[1]/main/div/div[4]/div[3]/div[10]/div[1]/input").click()
-        time.sleep(5)
+        time.sleep(2)
 
         if driver.find_element_by_id('error_box'):
-            print("Card Purchase Error")
-            sys.exit()
-
+            webhook.send("Card Purchase Error")
         else:
-            print("Card Purchased")
-            sys.exit()
-        #sys.exit()
+            webhook.send("Card Purchased")
+        sys.exit()
 
     except:
-        #webhook.send("Card Purchase Failed")
-        #clear_cart()
-        sys.exit()
+        webhook.send("Card Purchase Failed")
 
 
 def store_pickup(driver, webhook):
@@ -311,22 +307,29 @@ def store_pickup(driver, webhook):
 
                 driver.find_element_by_name("checkout_shipping").send_keys(Keys.ENTER)
                 time.sleep(10)
+                driver.find_element_by_id("ch-frm-paymentcontact-verify-firstname").send_keys("Shreyans")
+                driver.find_element_by_id("ch-frm-paymentcontact-verify-lastname").send_keys("Rishi")
+                driver.find_element_by_id("ch-frm-paymentcontact-verify-address-autocomplete").send_keys("6839 Early Settler Row")
+                time.sleep(1)
+                driver.find_element_by_class_name("pac-item").click()
+                time.sleep(1)
                 driver.find_element_by_name("checkout_payment").send_keys(Keys.ENTER)
                 time.sleep(10)
                 # ACTIVATE CHECKOUT BY REMOVING THE COMMENTS BELOW
-                # driver.find_element_by_name("checkout_confirmation").send_keys(Keys.ENTER)
-                # time.sleep(2)
+                driver.find_element_by_name("checkout_confirmation").send_keys(Keys.ENTER)
+                time.sleep(2)
                 webhook.send("Card Purchased")
                 sys.exit()
 
     except:
-        print("Card Purchase Failed")
+        webhook.send("Card Purchase Failed")
 
 
 def clear_cart():
     driver.get('https://www.canadacomputers.com/shopping_cart.php')
     if driver.find_element_by_css_selector("a[class='box-btn text-white my-1 btn_update_cart_quick']"):
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[class='box-btn text-white my-1 btn_update_cart_quick']"))).click()
+
 
 if __name__ == '__main__':
     driver = create_driver()

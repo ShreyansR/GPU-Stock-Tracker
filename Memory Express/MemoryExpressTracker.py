@@ -15,7 +15,7 @@ from discord import Webhook, RequestsWebhookAdapter
 from dotenv import load_dotenv
 load_dotenv()
 
-my_url = 'https://www.memoryexpress.com/Category/VideoCards?FilterID=0307ddc4-d08e-8113-7f91-cc2f992e99a3&PageSize=120'
+my_url = 'https://www.memoryexpress.com/Category/VideoCards?FilterID=ab9bebb8-44ed-907d-e4c0-009cae949a68&PageSize=120'
 my_url2 = 'https://www.memoryexpress.com/Category/VideoCards?FilterID=877021ae-b00f-e9d6-b67b-0f7d7419e503&PageSize=120'
 base_url = 'https://www.memoryexpress.com'
 image_base_url = 'https://media.memoryexpress.com/Images'

@@ -14,6 +14,7 @@ import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
+PROXY = "64.235.204.107:8080"
 
 my_url = 'https://www.canadacomputers.com/index.php?cPath=43&sf=:3_3,3_5,3_7,3_8,3_9&mfr=&pr=500-1000'
 my_url2 = 'https://www.facebook.com/CanadaComputers/'
@@ -29,18 +30,32 @@ card_number = os.getenv('TEST_CARD_NUMBER')
 card_expiry = os.getenv('TEST_CARD_EXPIRY')
 card_ccv = os.getenv('TEST_CARD_CCV')
 
-urls = []
+base_URL = "https://www.bestbuy.ca/en-ca/product/"
+urls = ["https://www.bestbuy.ca/en-ca/product/zotac-nvidia-geforce-rtx-3080-ti-amp-holo-12gb-gddr6x-video-card/15507363",
+        "https://www.bestbuy.ca/en-ca/product/asus-rog-strix-nvidia-geforce-rtx-3080-ti-oc-12gb-gddr6x-video-card/15493494",
+        "https://www.bestbuy.ca/en-ca/product/msi-nvidia-geforce-rtx-3080-ti-ventus-3x-oc-12gb-gddr6-video-card/15524483",
+        "https://www.bestbuy.ca/en-ca/product/msi-nvidia-geforce-rtx-3080-ti-gaming-x-trio-12gb-gddr6-video-card/15524484",
+        "https://www.bestbuy.ca/en-ca/product/evga-geforce-rtx-3080-ti-ftw3-ultra-12gb-gddr6x-video-card/15524485",
+        "https://www.bestbuy.ca/en-ca/product/nvidia-geforce-rtx-3080-ti-12gb-gddr6x-video-card/15530045"]
+
+urls2 = ["https://www.bestbuy.ca/en-ca/product/15530046",
+        "https://www.bestbuy.ca/en-ca/product/15546964",
+        "https://www.bestbuy.ca/en-ca/product/15545267",
+        "https://www.bestbuy.ca/en-ca/product/15545266",
+        "https://www.bestbuy.ca/en-ca/product/15547752",
+        "https://www.bestbuy.ca/en-ca/product/15547753"]
 
 # Initiate Webhook for Discord
 def create_webhook():
-    wHook = os.getenv('NVIDIA_WEBHOOK_CC')
+    wHook = os.getenv('BESTBUY_WEBHOOK')
     webhook = Webhook.from_url(wHook, adapter=RequestsWebhookAdapter())
     return webhook
 
 # Initiate Chrome Driver
 def create_driver():
     op = webdriver.ChromeOptions()
-    #op.add_argument('headless')
+    op.add_argument('headless')
+    op.add_argument('--proxy-server=%s' % PROXY)
     driver = webdriver.Chrome(options=op)
     return driver
 
@@ -48,90 +63,49 @@ def create_driver():
 def bot(driver, webhook):
     driver.maximize_window()                                                                                                   # Maximize chrome window, disable it if using chrome headless
 
-    # Launch CC Website in the Login Page, Accept Cookies and Login
-    driver.get('https://www.canadacomputers.com/login.php')
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "privacy-btn"))).click()
-    driver.find_element_by_id("lo-username").send_keys(os.getenv("CC_USERNAME"))
-    time.sleep(1)
-    driver.find_element_by_id("lo-password").send_keys(os.getenv("CC_PASS"))
-    time.sleep(1)
-    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "btn-login"))).click()
-
-    time.sleep(2)
-
-    # Infinite loop to keep checking for available items
     while 1:
-        pause = 1
-        driver.get(my_url3)
-        last_height = driver.execute_script("return document.body.scrollHeight")
+        # Launch CC Website in the Login Page, Accept Cookies and Login
+        for url in urls2:
+            driver.get(url)
+            #time.sleep(1)
+            page_html = driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
+            page_soup = soup(page_html, "lxml")
+            product = page_soup.find("h1", {"class": "productName_3nyxM"}).text.strip()
+            cart_button = page_soup.find("div", {"class": "addToCartContainer_20u-G"})
+            cart_class = ' '.join(cart_button.form.button['class'])
+            price = page_soup.find("span", {"class": "screenReaderOnly_3anTj large_3aP7Z"}).text.strip()
+            img_search = page_soup.find("img", {"class": "productImage_1NbKv"})
+            img_url = img_search['src']
+            #print(cart_class)
 
-        # Scroll down on the products page to load all items
-        while True:
-            # Scroll down to bottom
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            if (cart_class == "button_2m0Gt primary_RXOwf addToCartButton_1op0t addToCartButton regular_23pTm disabled_LqxUL"):
+                print(product, " Is Not Available")
 
-            # Wait to load page
-            time.sleep(pause)
-
-            # Calculate new scroll height and compare with last scroll height
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                #time.sleep(10)
-                page_html = driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
-                break
-            last_height = new_height
-
-        # Get products page html and convert to soup
-        page_soup = soup(page_html, "lxml")
-
-        # Get a list of products from the products page
-        product_list = page_soup.findAll("div", {"class": "col-xl-3 col-lg-4 col-6 mt-0_5 px-0_5 toggleBox mb-1"})
-
-        # If no products available, stop bot and notify discord channel
-        if(len(product_list) == 0):
-            webhook.send("Website not responding")
-            sys.exit()
-
-        print(len(product_list))
-
-        # Loop through each product in the list
-        for product in product_list:
-
-            # Get all product information (Name, Price, Image, ImageURL, etc)
-            bar = product.find("div", {"class": "col-12 allInfoSearch"})
-            info = product.find("div", {"class": "col-12 productImageDesc"})
-            nameSearch = info.find("div", {"class": "px-0 col-12 productInfoSearch pt-2"})
-            priceSearch = nameSearch.find("span", {"class": "d-block mb-0 pq-hdr-product_price line-height"})
-            name = nameSearch.span.text.strip()
-            price = priceSearch.strong.text.strip()
-            imageSearch = product.find("img", {"class": "pq-img-manu_logo align-self-center"})
-            imageURL = imageSearch['src']
-
-            # Check if product in stock
-            stock = bar.find("div", {"class": "mt-auto"})
-            button = stock.find("button", {"class": "btn btn-primary text-center mb-1 mt-2 rounded-0 position-relative"})
-
-            # If in stock, Add to Cart should be available
-            if button.text.strip() == "Add to Cart":
+            elif cart_class == "button_2m0Gt primary_RXOwf addToCartButton_1op0t addToCartButton regular_23pTm":
+                print(product, " Is Available")
 
                 # Send Discord Embed to Channel through Webhook
-                # e = discord.Embed(title=name, url=product.a['href'])
-                # e.set_image(url=imageURL)
-                # e.add_field(name="Product Link", value=product.a['href'])
-                # e.add_field(name="Price", value=price)
-                # e.timestamp = datetime.datetime.utcnow()
-                # webhook.send(embed=e)
+                e = discord.Embed(title=product, url=url)
+                e.set_image(url=img_url)
+                e.add_field(name="Product Link", value=url)
+                e.add_field(name="Price", value=price)
+                e.timestamp = datetime.datetime.utcnow()
+                webhook.send(embed=e)
+            time.sleep(1)
+            # if driver.find_element_by_css_selector("button[class='button_E6SE9 primary_1oCqK addToCartButton_1op0t addToCartButton regular_1jnnf'"):
+            #     print(driver.find_elements_by_class_name("productName_3nyxM").text.strip() + " Is Available")
+            #
+            # elif driver.find_elements_by_class_name()
+        # driver.get('https://www.canadacomputers.com/login.php')
+        # WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "privacy-btn"))).click()
+        # driver.find_element_by_id("lo-username").send_keys(os.getenv("CC_USERNAME"))
+        # time.sleep(1)
+        # driver.find_element_by_id("lo-password").send_keys(os.getenv("CC_PASS"))
+        # time.sleep(1)
+        # WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "btn-login"))).click()
 
-                # Initiate Card Buying Process
-                buy_card(driver, webhook, product.a['href'], price)
-                time.sleep(5)
-                #sys.exit()
-
-            link = product.a['href']
-            urls.append(link)
-
-        time.sleep(20)
-        driver.refresh()                                                                                                    # Check for new products every 20 seconds
+        time.sleep(3)
+                                                                                                               # Check for new products every 20 seconds
 
 
 # Method for buying a card
